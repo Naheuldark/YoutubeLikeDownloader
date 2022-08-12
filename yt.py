@@ -14,7 +14,7 @@ import eyed3
 def getVideoUrls():
     videos = []
 
-    f = open("data/youtubeURL_LL_small.txt", "r")
+    f = open("data/youtubeURL_LL_2.txt", "r")
     for x in f:
         videos.append(x.strip('\n'))
 
@@ -48,7 +48,7 @@ def download_Video(path, vid_url):
 
 
 def transform_Audio(path):
-    files = [os.path.splitext(f)[0] for f in listdir(path) if isfile(join(path, f))]
+    files = [os.path.splitext(f)[0] for f in listdir(path) if isfile(join(path, f)) and f.lower().endswith('.mp4')]
     for i, f in enumerate(files):
         print("Transforming to audio ", f)
         try:
@@ -89,30 +89,71 @@ def transform_Audio(path):
             print(e)
 
 
+def update_MP3(path):
+    files = [os.path.splitext(f)[0] for f in listdir(path) if isfile(join(path, f)) and f.lower().endswith('.mp4')]
+    for f in files:
+        print("Transforming to audio ", f)
+        try:
+            aud = path + '/' + f + '.mp3'
+            name = f.replace('–', '-')
+            is_remix = "remix" in name.casefold() or "mashup" in name.casefold() or "bootleg" in name.casefold()
+            has_several_hyphen = name.count('-') > 1
+            has_no_hyphen = name.count('-') == 0
+
+            split_name = name.split(' - ')
+            artist = ""
+            title = ""
+
+            if has_no_hyphen:
+                artist = "ID"
+                title = name
+            elif has_several_hyphen:
+                artist = split_name[0]
+                for x in split_name[1:]: title += x + " "
+            else:
+                artist = split_name[0]
+                title = split_name[1]
+
+            audiofile = eyed3.load(aud)
+            audiofile.tag.artist = artist
+            audiofile.tag.title = title
+            audiofile.tag.genre = "Other" if is_remix else "Dance"
+            audiofile.tag.save()
+        except Exception as e:
+            print("\tError with the transformation of", f)
+            print(e)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) < 1 or len(sys.argv) > 2:
-        print('USAGE: python yt.py destPath')
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print('USAGE: python yt.py destPath --tags-only --audio-only')
         exit(1)
     else:
-        directory = os.getcwd() if len(sys.argv) != 2 else sys.argv[1]
+        tags_only = sys.argv.count('--tags-only') > 0
+        audio_only = sys.argv.count('--audio-only') > 0
+        directory = sys.argv[1]
 
-        # make directory if dir specified doesn't exist
-        try:
-            os.makedirs(directory, exist_ok=True)
-        except OSError as e:
-            print(e.reason)
-            exit(1)
+        if tags_only:
+            update_MP3(directory)
+        elif audio_only:
+            transform_Audio(directory)
+        else:
+            # make directory if dir specified doesn't exist
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as e:
+                print(e.reason)
+                exit(1)
 
-        vid_urls = getVideoUrls()
+            vid_urls = getVideoUrls()
 
-        for vid_name_url in vid_urls:
-            download_Video(directory, vid_name_url)
-            time.sleep(1)
+            for vid_name_url in vid_urls:
+                download_Video(directory, vid_name_url)
+                time.sleep(1)
 
-        transform_Audio(directory)
+            transform_Audio(directory)
 
-# Last video was Nero & Skrillex - Promises (STEEL Flip)
-# https://www.youtube.com/watch?v=cXADu1mPJgs&list=LL&index=1
+# Last video was DayNight - Turn The Beat (BROHOUSE)
+# https://www.youtube.com/watch?v=HAQ6xaY7E4g
 
 # (\/watch\?v=.*&amp;list=LL&amp;index=\d+).*title="(.*)" --> select videos and titles
-#
